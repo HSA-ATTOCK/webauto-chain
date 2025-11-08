@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+  INVITED
+  SUSPENDED
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
+  ARCHIVED
+}
+
+enum LedgerEntryType {
+  CREDIT
+  PAYMENT
+  ADJUSTMENT
+  EDIT_REQUEST
+  DELETE_REQUEST
+}
+
+enum LedgerApprovalStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+enum LedgerStatusAction {
+  CREATED
+  UPDATED
+  APPROVED
+  DECLINED
+  REVOKED
+  COMMENTED
+}
+
+enum SubscriptionPlan {
+  CREATOR_BASIC
+  CREATOR_PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  LAPSED
+  CANCELLED
+  PENDING
+}
+
+enum InvoiceStatus {
+  PAID
+  UNPAID
+  VOID
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationType {
+  CONNECTION_INVITE
+  CONNECTION_ACCEPTED
+  CONNECTION_DECLINED
+  LEDGER_ACTION
+  LEDGER_DECISION
+  ACCOUNT_STATUS
+  SUBSCRIPTION_RENEWAL
+  SYSTEM_ALERT
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String?    @unique
+  phone         String?    @unique
+  passwordHash  String?
+  status        UserStatus @default(ACTIVE)
+  isAdmin       Boolean    @default(false)
+  emailVerified DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  accounts           Account[]
+  sessions           Session[]
+  createdConnections Connection[]        @relation("CreatedConnections")
+  parentConnections  Connection[]        @relation("ParentConnections")
+  childConnections   Connection[]        @relation("ChildConnections")
+  ledgerEntries      LedgerEntry[]
+  statusEvents       LedgerStatusEvent[]
+  notifications      Notification[]
+  subscriptions      Subscription[]
+  auditTrail         AuditLog[]
+  authenticators     Authenticator[]
+  connectionDeletions ConnectionDeletion[] @relation("ConnectionDeletionRequestedBy")
+  acknowledgedConnectionDeletions ConnectionDeletion[] @relation("ConnectionDeletionAcknowledgedBy")
+}
+
+model Connection {
+  id             String           @id @default(cuid())
+  createdBy      User?            @relation("CreatedConnections", fields: [createdById], references: [id])
+  createdById    String?
+  parent         User             @relation("ParentConnections", fields: [parentId], references: [id])
+  parentId       String
+  child          User             @relation("ChildConnections", fields: [childId], references: [id])
+  childId        String
+  status         ConnectionStatus @default(PENDING)
+  billingSettled Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  ledgerEntries LedgerEntry[]
+  balance       ConnectionBalance?
+  invitation    ConnectionInvitationToken?
+  parentAlias   String?
+  childAlias    String?
+  deletion      ConnectionDeletion?
+
+  @@unique([parentId, childId])
+}
+
+model ConnectionDeletion {
+  id            String     @id @default(cuid())
+  connection    Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connectionId  String     @unique
+  requestedBy   User       @relation("ConnectionDeletionRequestedBy", fields: [requestedById], references: [id])
+  requestedById String
+  acknowledgedBy   User?    @relation("ConnectionDeletionAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  acknowledgedById String?
+  acknowledgedAt    DateTime?
+  expiresAt     DateTime
+  createdAt     DateTime   @default(now())
+}
+
+model LedgerEntry {
+  id             String               @id @default(cuid())
+  connection     Connection           @relation(fields: [connectionId], references: [id])
+  connectionId   String
+  createdBy      User                 @relation(fields: [createdById], references: [id])
+  createdById    String
+  entryType      LedgerEntryType
+  approvalStatus LedgerApprovalStatus @default(PENDING)
+  amount         Decimal              @db.Decimal(18, 2)
+  items          Json?
+  notes          String?
+  dueDate        DateTime?
+  supersedes     LedgerEntry?         @relation("LedgerEntryEdits", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supersedesId   String?
+  editRequests   LedgerEntry[]        @relation("LedgerEntryEdits")
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  statusEvents    LedgerStatusEvent[]
+  pendingMutation PendingLedgerMutation?
+}
+
+model LedgerStatusEvent {
+  id            String             @id @default(cuid())
+  ledgerEntry   LedgerEntry        @relation(fields: [ledgerEntryId], references: [id])
+  ledgerEntryId String
+  actor         User               @relation(fields: [actorId], references: [id])
+  actorId       String
+  action        LedgerStatusAction
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+}
+
+model ConnectionBalance {
+  id            String     @id @default(cuid())
+  connection    Connection @relation(fields: [connectionId], references: [id])
+  connectionId  String     @unique
+  totalCredit   Decimal    @default(0) @db.Decimal(18, 2)
+  totalPayments Decimal    @default(0) @db.Decimal(18, 2)
+  outstanding   Decimal    @default(0) @db.Decimal(18, 2)
+  updatedAt     DateTime   @updatedAt
+}
+
+model Subscription {
+  id          String             @id @default(cuid())
+  owner       User               @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  plan        SubscriptionPlan
+  status      SubscriptionStatus @default(PENDING)
+  activatedAt DateTime?
+  expiresAt   DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  invoices SubscriptionInvoice[]
+
+  @@unique([ownerId, status])
+}
+
+model SubscriptionInvoice {
+  id                String        @id @default(cuid())
+  subscription      Subscription  @relation(fields: [subscriptionId], references: [id])
+  subscriptionId    String
+  amount            Decimal       @db.Decimal(18, 2)
+  currency          String        @default("PKR")
+  status            InvoiceStatus @default(UNPAID)
+  paymentProviderId String?
+  issuedAt          DateTime      @default(now())
+  settledAt         DateTime?
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  account   User                @relation(fields: [accountId], references: [id])
+  accountId String
+  channel   NotificationChannel @default(IN_APP)
+  type      NotificationType
+  title     String
+  body      String
+  payload   Json?
+  read      Boolean             @default(false)
+  createdAt DateTime            @default(now())
+  readAt    DateTime?
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id])
+  scope       String
+  action      String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
+model ConnectionInvitationToken {
+  id           String     @id @default(cuid())
+  connection   Connection @relation(fields: [connectionId], references: [id])
+  connectionId String     @unique
+  token        String     @unique
+  expiresAt    DateTime
+  createdAt    DateTime   @default(now())
+}
+
+model PendingLedgerMutation {
+  id            String      @id @default(cuid())
+  ledgerEntry   LedgerEntry @relation(fields: [ledgerEntryId], references: [id])
+  ledgerEntryId String      @unique
+  retryAfter    DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+/// NextAuth.js models ------------------------------------------------------
+model Account {
+  id                       String  @id @default(cuid())
+  userId                   String
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String? @map("refreshToken")
+  access_token             String? @map("accessToken")
+  expires_at               Int?    @map("expiresAt")
+  token_type               String? @map("tokenType")
+  scope                    String?
+  id_token                 String? @map("idToken")
+  session_state            String? @map("sessionState")
+  refresh_token_expires_in Int?    @map("refreshTokenExpiresIn")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  credentialID         String  @id
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerAccountId, credentialID])
+}
