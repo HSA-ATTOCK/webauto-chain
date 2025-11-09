@@ -25,8 +25,8 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   themeColor: "#2563eb",
   icons: {
-    apple: "/icons/icon-192.png",
-    icon: "/icons/icon-192.png",
+    apple: "/icons/logo.png",
+    icon: "/icons/logo.png",
   },
   appleWebApp: {
     capable: true,
