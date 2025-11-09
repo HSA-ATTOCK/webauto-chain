@@ -73,6 +73,27 @@ Unit tests run with Vitest (`npm test`). Add new suites under `src/**/__tests__`
 - Run `npm run prisma:migrate` as part of release automation.
 - Ensure service worker and manifest stay registered by serving from root path.
 
+## Android APK Packaging
+
+Package the production PWA into an installable Android APK with Bubblewrap:
+
+1. Install the CLI globally (requires Node.js):
+   ```bash
+   npm install -g @bubblewrap/cli
+   ```
+2. Initialize an Android project from the hosted manifest (replace the URL with your live domain):
+   ```bash
+   bubblewrap init --manifest=https://chain.webautosolutions.co.uk/manifest.webmanifest
+   ```
+   The command scaffolds a `./android` project directory preconfigured with your PWA metadata.
+3. Build the APK release artifact:
+   ```bash
+   bubblewrap build
+   ```
+   The signed binary is emitted to `./build/app-release.apk`. Use Android Studio or the Play Console if you plan to upload to the Play Store; otherwise share the APK directly with users.
+
+Prerequisites for signing uploads include Java JDK 11+ and the Android SDK. Local testing sideloads only need the APK output above.
+
 ## PWA & Offline Behavior
 
 - Service worker (`public/service-worker.js`) uses cache-first strategies for static assets and background sync for queued ledger mutations.

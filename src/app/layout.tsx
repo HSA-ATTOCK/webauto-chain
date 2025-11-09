@@ -7,6 +7,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ServiceWorkerManager } from "@/components/pwa/service-worker-manager";
 import { IOSInstallPrompt } from "@/components/pwa/ios-install-prompt";
+import { PushManagerComponent } from "@/components/pwa/push-manager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,8 +27,14 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   themeColor: "#2563eb",
   icons: {
-    apple: "/icons/logo.png",
-    icon: "/icons/logo.png",
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/icons/icon-192.png",
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
   },
   appleWebApp: {
     capable: true,
@@ -50,6 +57,7 @@ export default function RootLayout({
         <ThemeProvider>
           <QueryProvider>
             <ServiceWorkerManager />
+            <PushManagerComponent />
             <IOSInstallPrompt />
             {children}
           </QueryProvider>

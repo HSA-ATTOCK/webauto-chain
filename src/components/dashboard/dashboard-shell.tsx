@@ -1373,9 +1373,10 @@ export function DashboardShell({ user }: { user: SessionUser }) {
     : showAccountView
     ? "Manage your personal information and account status."
     : "Review your links and stay on top of activity.";
-  const headerSubtitleClassName = showManageView
-    ? "hidden text-xs text-muted-foreground sm:block sm:text-sm"
-    : "text-xs text-muted-foreground sm:text-sm";
+  // Hide subtitles on small screens for non-ledger views (manage view already hidden)
+  const headerSubtitleClassName = showLedgerView
+    ? "text-xs text-muted-foreground sm:text-sm"
+    : "hidden text-xs text-muted-foreground sm:block sm:text-sm";
   const accountRoleLabel = user.isAdmin
     ? "Administrator"
     : isCreator

@@ -20,6 +20,20 @@
 # production
 /build
 
+# android build outputs & secrets
+.gradle/
+android.keystore
+*.apk
+*.aab
+*.idsig
+android-app/build/
+
+# local state
+notifications-subscriptions.json
+tmp/
+src/.next/
+vapid-keys.json
+
 # misc
 .DS_Store
 *.pem

@@ -151,8 +151,5 @@ export const {
 
       return token;
     },
-    authorized({ auth: session }) {
-      return !!session;
-    },
   },
 });
