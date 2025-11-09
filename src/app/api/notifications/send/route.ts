@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import webpush from "web-push";
+import type { PushSubscription } from "web-push";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -41,7 +42,12 @@ export async function POST(req: NextRequest) {
       process.cwd(),
       "notifications-subscriptions.json"
     );
-    let subs: Array<Record<string, unknown>> = [];
+    type StoredSubscriptionRecord = {
+      subscription?: unknown;
+      subscribedAt?: string;
+    };
+
+    let subs: StoredSubscriptionRecord[] = [];
     try {
       const raw = await fs.readFile(subsPath, "utf-8");
       subs = JSON.parse(raw) as Array<Record<string, unknown>>;
@@ -59,19 +65,53 @@ export async function POST(req: NextRequest) {
     const results: Array<{ endpoint?: string; ok: boolean; error?: string }> =
       [];
 
+    const isPushSubscription = (
+      value: unknown
+    ): value is PushSubscription => {
+      if (!value || typeof value !== "object") return false;
+      const candidate = value as Record<string, unknown>;
+      if (typeof candidate.endpoint !== "string") return false;
+      const keys = candidate.keys;
+      if (!keys || typeof keys !== "object") return false;
+      const keysRecord = keys as Record<string, unknown>;
+      return (
+        typeof keysRecord.p256dh === "string" &&
+        typeof keysRecord.auth === "string"
+      );
+    };
+
+    const extractEndpoint = (value: unknown) => {
+      if (value && typeof value === "object") {
+        const maybe = value as Record<string, unknown>;
+        if (typeof maybe.endpoint === "string") {
+          return maybe.endpoint;
+        }
+      }
+      return undefined;
+    };
+
     for (const record of subs) {
       const subscription = record.subscription;
+      const endpoint = extractEndpoint(subscription);
+
+      if (!isPushSubscription(subscription)) {
+        results.push({
+          endpoint,
+          ok: false,
+          error: "invalid subscription payload",
+        });
+        continue;
+      }
+
       try {
         await webpush.sendNotification(subscription, JSON.stringify(payload));
         results.push({
-          endpoint:
-            (subscription && (subscription as any).endpoint) ?? undefined,
+          endpoint,
           ok: true,
         });
       } catch (err) {
         results.push({
-          endpoint:
-            (subscription && (subscription as any).endpoint) ?? undefined,
+          endpoint,
           ok: false,
           error: String(err),
         });
