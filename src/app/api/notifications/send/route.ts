@@ -65,9 +65,7 @@ export async function POST(req: NextRequest) {
     const results: Array<{ endpoint?: string; ok: boolean; error?: string }> =
       [];
 
-    const isPushSubscription = (
-      value: unknown
-    ): value is PushSubscription => {
+    const isPushSubscription = (value: unknown): value is PushSubscription => {
       if (!value || typeof value !== "object") return false;
       const candidate = value as Record<string, unknown>;
       if (typeof candidate.endpoint !== "string") return false;
