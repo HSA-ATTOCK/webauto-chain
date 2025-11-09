@@ -6,6 +6,7 @@ import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ServiceWorkerManager } from "@/components/pwa/service-worker-manager";
+import { IOSInstallPrompt } from "@/components/pwa/ios-install-prompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,6 +50,7 @@ export default function RootLayout({
         <ThemeProvider>
           <QueryProvider>
             <ServiceWorkerManager />
+            <IOSInstallPrompt />
             {children}
           </QueryProvider>
         </ThemeProvider>
