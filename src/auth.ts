@@ -9,11 +9,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { verifyPassword } from "@/lib/auth/password";
+import { parseIdentifier, normalizePhone } from "@/lib/auth/identifiers";
 
 const PERSISTENT_SESSION_MAX_AGE = 60 * 60 * 24 * 365 * 5; // ~5 years
 
 const credentialsSchema = z.object({
-  email: z.string().email(),
+  identifier: z.string().min(3),
   password: z.string().min(8),
   intent: z.enum(["USER", "ADMIN"]).optional(),
 });
@@ -62,15 +63,45 @@ export const {
     emailProvider,
     Credentials({
       async authorize(raw) {
-        const parsed = credentialsSchema.safeParse(raw);
+        const parsed = credentialsSchema.safeParse({
+          identifier:
+            typeof raw?.identifier === "string" && raw.identifier.trim().length
+              ? raw.identifier
+              : typeof raw?.email === "string"
+              ? raw.email
+              : "",
+          password: raw?.password,
+          intent: raw?.intent,
+        });
         if (!parsed.success) {
           return null;
         }
 
-        const { email, password, intent } = parsed.data;
+        const identifier = parseIdentifier(parsed.data.identifier);
+        if (!identifier) {
+          return null;
+        }
+
+        const { password, intent } = parsed.data;
         const desiredIntent = intent ?? "USER";
+
+        const rawInput = parsed.data.identifier.trim();
         const user = await prisma.user.findFirst({
-          where: { email },
+          where:
+            identifier.kind === "email"
+              ? {
+                  email: {
+                    equals: identifier.value,
+                    mode: "insensitive",
+                  },
+                }
+              : {
+                  OR: [
+                    { phone: identifier.value },
+                    { phone: normalizePhone(rawInput) },
+                    { phone: rawInput },
+                  ],
+                },
         });
 
         if (!user?.passwordHash) {

@@ -59,14 +59,15 @@ export function SignInForm({
           <TabsContent value="password">
             <form action={credentialDispatch} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signin-email">Email</Label>
+                <Label htmlFor="signin-identifier">Email or phone</Label>
                 <Input
-                  id="signin-email"
-                  name="email"
-                  type="email"
-                  placeholder="ledger@example.com"
+                  id="signin-identifier"
+                  name="identifier"
+                  type="text"
+                  placeholder="ledger@example.com or +923001234567"
                   required
-                  autoComplete="email"
+                  autoComplete="username"
+                  inputMode="text"
                 />
               </div>
               <div className="space-y-2">

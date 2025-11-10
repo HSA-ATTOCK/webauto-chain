@@ -25,7 +25,7 @@ type RegisterAction = (
 
 function validateEmail(value: string): string | null {
   if (!value || value.trim().length === 0) {
-    return "Email is required.";
+    return null;
   }
 
   // Basic RFC 5322 compliant pattern for client-side guidance
@@ -34,6 +34,19 @@ function validateEmail(value: string): string | null {
 
   if (!pattern.test(value.trim())) {
     return "Enter a valid email address.";
+  }
+
+  return null;
+}
+
+function validatePhone(value: string): string | null {
+  if (!value || value.trim().length === 0) {
+    return null;
+  }
+
+  const normalized = value.replace(/[\s\-()]/g, "");
+  if (!/^\+?[0-9]{7,15}$/.test(normalized)) {
+    return "Enter a valid phone number.";
   }
 
   return null;
@@ -54,28 +67,42 @@ function validatePassword(value: string): string | null {
 export function RegisterForm({ action }: { action: RegisterAction }) {
   const [state, dispatch] = useActionState(action, initialState);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const hasClientErrors = useMemo(
-    () => Boolean(emailError) || Boolean(passwordError),
-    [emailError, passwordError]
+    () => Boolean(emailError) || Boolean(phoneError) || Boolean(passwordError),
+    [emailError, phoneError, passwordError]
   );
 
   const validateFormFields = useCallback((form: HTMLFormElement | null) => {
     if (!form) {
-      return { emailIssue: null, passwordIssue: null };
+      return { emailIssue: null, phoneIssue: null, passwordIssue: null };
     }
 
     const formData = new FormData(form);
-    const emailIssue = validateEmail(String(formData.get("email") ?? ""));
+    const emailValue = String(formData.get("email") ?? "");
+    const phoneValue = String(formData.get("phone") ?? "");
+    const emailIssue = validateEmail(emailValue);
+    const phoneIssue = validatePhone(phoneValue);
+    const missingContact =
+      (!emailValue || emailValue.trim().length === 0) &&
+      (!phoneValue || phoneValue.trim().length === 0)
+        ? "Provide an email or phone number."
+        : null;
     const passwordIssue = validatePassword(
       String(formData.get("password") ?? "")
     );
 
-    setEmailError(emailIssue);
+    setEmailError(missingContact ?? emailIssue);
+    setPhoneError(missingContact ?? phoneIssue);
     setPasswordError(passwordIssue);
 
-    return { emailIssue, passwordIssue };
+    return {
+      emailIssue: missingContact ?? emailIssue,
+      phoneIssue: missingContact ?? phoneIssue,
+      passwordIssue,
+    };
   }, []);
 
   return (
@@ -92,11 +119,10 @@ export function RegisterForm({ action }: { action: RegisterAction }) {
           action={dispatch}
           className="space-y-4"
           onSubmit={(event) => {
-            const { emailIssue, passwordIssue } = validateFormFields(
-              event.currentTarget
-            );
+            const { emailIssue, phoneIssue, passwordIssue } =
+              validateFormFields(event.currentTarget);
 
-            if (emailIssue || passwordIssue) {
+            if (emailIssue || phoneIssue || passwordIssue) {
               event.preventDefault();
             }
           }}
@@ -118,16 +144,19 @@ export function RegisterForm({ action }: { action: RegisterAction }) {
               name="email"
               type="email"
               placeholder="you@company.com"
-              required
               autoComplete="email"
               aria-invalid={emailError ? "true" : "false"}
               aria-describedby={emailError ? "signup-email-error" : undefined}
-              onBlur={(event) =>
-                setEmailError(validateEmail(event.target.value))
-              }
+              onBlur={(event) => {
+                const result = validateFormFields(event.currentTarget.form);
+                setEmailError(result.emailIssue);
+                setPhoneError(result.phoneIssue);
+              }}
               onChange={(event) => {
-                if (emailError) {
-                  setEmailError(validateEmail(event.target.value));
+                if (emailError || phoneError) {
+                  const result = validateFormFields(event.currentTarget.form);
+                  setEmailError(result.emailIssue);
+                  setPhoneError(result.phoneIssue);
                 }
               }}
             />
@@ -142,13 +171,37 @@ export function RegisterForm({ action }: { action: RegisterAction }) {
             ) : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="signup-phone">Phone (optional)</Label>
+            <Label htmlFor="signup-phone">Phone</Label>
             <Input
               id="signup-phone"
               name="phone"
               type="tel"
               placeholder="0300 0000000"
+              autoComplete="tel"
+              aria-invalid={phoneError ? "true" : "false"}
+              aria-describedby={phoneError ? "signup-phone-error" : undefined}
+              onBlur={(event) => {
+                const result = validateFormFields(event.currentTarget.form);
+                setEmailError(result.emailIssue);
+                setPhoneError(result.phoneIssue);
+              }}
+              onChange={(event) => {
+                if (emailError || phoneError) {
+                  const result = validateFormFields(event.currentTarget.form);
+                  setEmailError(result.emailIssue);
+                  setPhoneError(result.phoneIssue);
+                }
+              }}
             />
+            {phoneError ? (
+              <p
+                id="signup-phone-error"
+                className="text-xs text-destructive"
+                role="alert"
+              >
+                {phoneError}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="signup-password">Password</Label>
@@ -211,11 +264,10 @@ export function RegisterForm({ action }: { action: RegisterAction }) {
             className="w-full"
             disabled={hasClientErrors}
             onClick={(event) => {
-              const { emailIssue, passwordIssue } = validateFormFields(
-                event.currentTarget.form ?? null
-              );
+              const { emailIssue, phoneIssue, passwordIssue } =
+                validateFormFields(event.currentTarget.form ?? null);
 
-              if (emailIssue || passwordIssue) {
+              if (emailIssue || phoneIssue || passwordIssue) {
                 event.preventDefault();
               }
             }}

@@ -8,9 +8,10 @@ import { signIn } from "@/auth";
 import { SignInResult } from "@/lib/auth/sign-in-result";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth/password";
+import { parseIdentifier, normalizePhone } from "@/lib/auth/identifiers";
 
 const credentialsSchema = z.object({
-  email: z.string().email(),
+  identifier: z.string().min(3, "Enter a valid email or phone number."),
   password: z.string().min(8),
 });
 
@@ -23,25 +24,60 @@ export async function signInWithCredentials(
   formData: FormData
 ): Promise<SignInResult> {
   const credentials = credentialsSchema.safeParse({
-    email: formData.get("email"),
+    identifier:
+      typeof formData.get("identifier") === "string"
+        ? (formData.get("identifier") as string)
+        : "",
     password: formData.get("password"),
   });
 
   if (!credentials.success) {
-    return { success: false, error: "Enter a valid email and password." };
+    return {
+      success: false,
+      error:
+        credentials.error.issues[0]?.message ??
+        "Enter a valid email or phone number and password.",
+    };
   }
+
+  const identifier = parseIdentifier(credentials.data.identifier);
+
+  if (!identifier) {
+    return {
+      success: false,
+      error: "Enter a valid email or phone number and password.",
+    };
+  }
+
+  const normalizedInput = identifier.value;
 
   try {
     const result = await signIn("credentials", {
-      email: credentials.data.email,
+      identifier: normalizedInput,
       password: credentials.data.password,
       intent: "USER",
       redirect: false,
     });
 
     if (result?.error) {
-      const user = await prisma.user.findUnique({
-        where: { email: credentials.data.email },
+      const user = await prisma.user.findFirst({
+        where:
+          identifier.kind === "email"
+            ? {
+                email: {
+                  equals: identifier.value,
+                  mode: "insensitive",
+                },
+              }
+            : {
+                OR: [
+                  { phone: identifier.value },
+                  { phone: credentials.data.identifier.trim() },
+                  {
+                    phone: normalizePhone(credentials.data.identifier),
+                  },
+                ],
+              },
         select: { passwordHash: true, status: true },
       });
 
@@ -57,7 +93,10 @@ export async function signInWithCredentials(
         };
       }
 
-      return { success: false, error: "Incorrect email or password." };
+      return {
+        success: false,
+        error: "Incorrect email/phone or password.",
+      };
     }
 
     redirect("/dashboard");
@@ -72,7 +111,7 @@ export async function signInWithCredentials(
     }
 
     console.error("Sign-in failed", error);
-    return { success: false, error: "Incorrect email or password." };
+    return { success: false, error: "Incorrect email/phone or password." };
   }
 }
 

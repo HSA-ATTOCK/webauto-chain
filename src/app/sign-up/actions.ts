@@ -1,26 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
 
 import { signIn } from "@/auth";
-
-const registerSchema = z.object({
-  name: z
-    .string({ required_error: "Name is required." })
-    .min(2, "Name must be at least 2 characters.")
-    .max(80, "Name cannot exceed 80 characters."),
-  email: z
-    .string({ required_error: "Email is required." })
-    .email("Enter a valid email address."),
-  phone: z
-    .string()
-    .regex(/^[0-9+\-\s]{7,15}$/)
-    .optional(),
-  password: z
-    .string({ required_error: "Password is required." })
-    .min(8, "Password must be at least 8 characters."),
-});
+import { registerSchema } from "@/lib/validators/auth";
 
 export type RegisterResult = {
   success: boolean;
@@ -34,7 +17,7 @@ export async function registerAccount(
   const payload = registerSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
-    phone: formData.get("phone") || undefined,
+    phone: formData.get("phone"),
     password: formData.get("password"),
   });
 
@@ -66,7 +49,7 @@ export async function registerAccount(
     }
 
     await signIn("credentials", {
-      email: payload.data.email,
+      identifier: payload.data.email ?? payload.data.phone ?? "",
       password: payload.data.password,
       redirect: false,
     });

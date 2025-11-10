@@ -16,14 +16,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const existing = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: parsed.data.email },
-          parsed.data.phone ? { phone: parsed.data.phone } : undefined,
-        ].filter(Boolean) as { email?: string; phone?: string }[],
-      },
-    });
+    const dedupeFilters: { email?: string; phone?: string }[] = [];
+    if (parsed.data.email) {
+      dedupeFilters.push({ email: parsed.data.email });
+    }
+    if (parsed.data.phone) {
+      dedupeFilters.push({ phone: parsed.data.phone });
+    }
+
+    const existing = dedupeFilters.length
+      ? await prisma.user.findFirst({
+          where: { OR: dedupeFilters },
+        })
+      : null;
 
     if (existing) {
       return NextResponse.json(
