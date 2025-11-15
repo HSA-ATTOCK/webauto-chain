@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,11 +31,9 @@ export function SignInForm({
   credentialAction: Action;
   magicLinkAction: Action;
 }) {
-  const [credentialState, credentialDispatch] = useActionState(
-    credentialAction,
-    initialState
-  );
-  const [magicState, magicDispatch] = useActionState(
+  const [credentialState, credentialDispatch, credentialPending] =
+    useActionState(credentialAction, initialState);
+  const [magicState, magicDispatch, magicPending] = useActionState(
     magicLinkAction,
     initialState
   );
@@ -103,8 +101,16 @@ export function SignInForm({
                   {credentialState.error}
                 </p>
               ) : null}
-              <Button type="submit" className="w-full">
-                Sign in
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={credentialPending}
+              >
+                {credentialPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Sign in"
+                )}
               </Button>
             </form>
           </TabsContent>
@@ -130,8 +136,17 @@ export function SignInForm({
                   {magicState.error}
                 </p>
               ) : null}
-              <Button type="submit" variant="outline" className="w-full">
-                Email me a sign-in link
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                disabled={magicPending}
+              >
+                {magicPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Email me a sign-in link"
+                )}
               </Button>
             </form>
           </TabsContent>

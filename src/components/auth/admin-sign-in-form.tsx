@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,10 +28,8 @@ export function AdminSignInForm({
 }: {
   credentialAction: Action;
 }) {
-  const [credentialState, credentialDispatch] = useActionState(
-    credentialAction,
-    initialState
-  );
+  const [credentialState, credentialDispatch, credentialPending] =
+    useActionState(credentialAction, initialState);
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -84,8 +82,12 @@ export function AdminSignInForm({
           {credentialState.error ? (
             <p className="text-sm text-destructive">{credentialState.error}</p>
           ) : null}
-          <Button type="submit" className="w-full">
-            Sign in as admin
+          <Button type="submit" className="w-full" disabled={credentialPending}>
+            {credentialPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Sign in as admin"
+            )}
           </Button>
         </form>
       </CardContent>

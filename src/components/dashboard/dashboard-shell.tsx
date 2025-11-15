@@ -91,6 +91,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { signOut } from "next-auth/react";
 
 import { z } from "zod";
+import { parseContact } from "@/lib/validators/contact";
 
 const REFRESH_INTERVAL_MS = 5000;
 
@@ -136,18 +137,38 @@ const dueDateField = z
     }
   );
 
-const inviteSchema = z.object({
-  childEmail: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email({ message: "Enter a valid partner email" }),
-  childName: z
-    .string()
-    .trim()
-    .min(2, { message: "Enter the partner name" })
-    .max(80, { message: "Partner name must be 80 characters or less" }),
-});
+const inviteSchema = z
+  .object({
+    partnerContact: z
+      .string()
+      .trim()
+      .min(1, { message: "Enter the partner email or phone number" }),
+  })
+  .superRefine((value, ctx) => {
+    if (!parseContact(value.partnerContact)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["partnerContact"],
+        message: "Enter a valid partner email or phone number",
+      });
+    }
+  })
+  .transform((value) => {
+    const contact = parseContact(value.partnerContact);
+    if (!contact) {
+      throw new Error("Invalid partner contact");
+    }
+
+    if (contact.type === "email") {
+      return {
+        childEmail: contact.value,
+      };
+    }
+
+    return {
+      childPhone: contact.value,
+    };
+  });
 
 type InviteFormValues = z.infer<typeof inviteSchema>;
 
@@ -1288,8 +1309,7 @@ export function DashboardShell({ user }: { user: SessionUser }) {
   const handleInviteSubmit = (formData: FormData) => {
     setInviteError(null);
     const parsed = inviteSchema.safeParse({
-      childEmail: formData.get("childEmail")?.toString() ?? "",
-      childName: formData.get("childName")?.toString()?.trim() ?? "",
+      partnerContact: formData.get("partnerContact")?.toString()?.trim() ?? "",
     });
 
     if (!parsed.success) {
@@ -1375,7 +1395,7 @@ export function DashboardShell({ user }: { user: SessionUser }) {
     : "Review your links and stay on top of activity.";
   // Hide subtitles on small screens for non-ledger views (manage view already hidden)
   const headerSubtitleClassName = showLedgerView
-    ? "text-xs text-muted-foreground sm:text-sm"
+    ? "hidden text-xs text-muted-foreground sm:block sm:text-sm"
     : "hidden text-xs text-muted-foreground sm:block sm:text-sm";
   const accountRoleLabel = user.isAdmin
     ? "Administrator"
@@ -3396,7 +3416,7 @@ export function DashboardShell({ user }: { user: SessionUser }) {
           <DialogHeader>
             <DialogTitle>Invite a downstream partner</DialogTitle>
             <DialogDescription>
-              Creator plans cover invites. Your partner will receive email
+              Creator plans cover invites. Your partner will receive
               instructions to join WebAuto Chain.
             </DialogDescription>
           </DialogHeader>
@@ -3416,21 +3436,12 @@ export function DashboardShell({ user }: { user: SessionUser }) {
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="childName">Partner name</Label>
+              <Label htmlFor="partnerContact">Partner email or phone</Label>
               <Input
-                id="childName"
-                name="childName"
-                placeholder="Shopkeeper name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="childEmail">Partner email</Label>
-              <Input
-                id="childEmail"
-                name="childEmail"
-                placeholder="name@example.com"
-                type="email"
+                id="partnerContact"
+                name="partnerContact"
+                placeholder="name@example.com or +92 300 1234567"
+                type="text"
                 required
               />
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useCallback, useMemo, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -65,7 +65,7 @@ function validatePassword(value: string): string | null {
 }
 
 export function RegisterForm({ action }: { action: RegisterAction }) {
-  const [state, dispatch] = useActionState(action, initialState);
+  const [state, dispatch, isPending] = useActionState(action, initialState);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -262,7 +262,7 @@ export function RegisterForm({ action }: { action: RegisterAction }) {
           <Button
             type="submit"
             className="w-full"
-            disabled={hasClientErrors}
+            disabled={hasClientErrors || isPending}
             onClick={(event) => {
               const { emailIssue, phoneIssue, passwordIssue } =
                 validateFormFields(event.currentTarget.form ?? null);
@@ -272,7 +272,11 @@ export function RegisterForm({ action }: { action: RegisterAction }) {
               }
             }}
           >
-            Register and proceed
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Register and proceed"
+            )}
           </Button>
         </form>
       </CardContent>

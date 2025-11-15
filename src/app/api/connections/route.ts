@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       creatorId: user.id,
       childId: parsed.data.childId,
       childEmail: parsed.data.childEmail,
-      childName: parsed.data.childName,
+      childPhone: parsed.data.childPhone,
     });
 
     return NextResponse.json({ connection }, { status: 201 });
@@ -92,15 +92,18 @@ export async function POST(request: Request) {
       );
     }
 
-    if ((error as Error).message === "No user found with that email.") {
-      return NextResponse.json(
-        { error: (error as Error).message },
-        { status: 404 }
-      );
+    const message = (error as Error).message;
+
+    if (
+      message === "No user found with that email." ||
+      message === "No user found with that phone number." ||
+      message === "No user found with the provided contact details."
+    ) {
+      return NextResponse.json({ error: message }, { status: 404 });
     }
 
     return NextResponse.json(
-      { error: (error as Error).message ?? "Unable to create connection" },
+      { error: message ?? "Unable to create connection" },
       { status: 400 }
     );
   }

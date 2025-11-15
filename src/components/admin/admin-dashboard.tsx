@@ -25,7 +25,6 @@ import type {
   AdminNetworkConnectionSummary,
   AdminNetworkLedgerEntrySummary,
   AdminNetworkLedgerStatusEventSummary,
-  AdminNetworkOverview,
   AdminNetworkUserNode,
   AdminUserSummary,
   PendingConnectionDeletionSummary,
@@ -117,7 +116,7 @@ function formatDateTime(value: string | null | undefined): string {
 function formatJson(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2);
-  } catch (error) {
+  } catch {
     return value ? String(value) : "";
   }
 }
@@ -565,25 +564,45 @@ export function AdminDashboard({
       return;
     }
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     if (filteredNetworkUsers.length === 0) {
       if (selectedNetworkUserId !== null) {
-        setSelectedNetworkUserId(null);
+        timeoutId = setTimeout(() => {
+          setSelectedNetworkUserId(null);
+        }, 0);
       }
-      return;
+    } else {
+      const hasSelection = filteredNetworkUsers.some(
+        (user) => user.id === selectedNetworkUserId
+      );
+
+      if (!hasSelection) {
+        const nextId = filteredNetworkUsers[0]?.id ?? null;
+        if (nextId !== null) {
+          timeoutId = setTimeout(() => {
+            setSelectedNetworkUserId(nextId);
+          }, 0);
+        }
+      }
     }
 
-    const hasSelection = filteredNetworkUsers.some(
-      (user) => user.id === selectedNetworkUserId
-    );
-
-    if (!hasSelection) {
-      setSelectedNetworkUserId(filteredNetworkUsers[0].id);
-    }
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [networkOverview, filteredNetworkUsers, selectedNetworkUserId]);
 
   useEffect(() => {
-    setNetworkCollapsedSections({ downstream: false, upstream: false });
-    setCollapsedConnections({});
+    const timeoutId = setTimeout(() => {
+      setNetworkCollapsedSections({ downstream: false, upstream: false });
+      setCollapsedConnections({});
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [selectedNetworkUserId]);
 
   const selectedNetworkUser: AdminNetworkUserNode | null = selectedNetworkUserId
@@ -597,24 +616,30 @@ export function AdminDashboard({
       return;
     }
 
-    setCollapsedConnections((previous) => {
-      const allowedIds = new Set([
-        ...selectedNetworkUser.downstreamConnections.map(
-          (connection) => connection.id
-        ),
-        ...selectedNetworkUser.upstreamConnections.map(
-          (connection) => connection.id
-        ),
-      ]);
+    const timeoutId = setTimeout(() => {
+      setCollapsedConnections((previous) => {
+        const allowedIds = new Set([
+          ...selectedNetworkUser.downstreamConnections.map(
+            (connection) => connection.id
+          ),
+          ...selectedNetworkUser.upstreamConnections.map(
+            (connection) => connection.id
+          ),
+        ]);
 
-      const next: Record<string, boolean> = {};
-      for (const [connectionId, isCollapsed] of Object.entries(previous)) {
-        if (allowedIds.has(connectionId) && isCollapsed) {
-          next[connectionId] = true;
+        const next: Record<string, boolean> = {};
+        for (const [connectionId, isCollapsed] of Object.entries(previous)) {
+          if (allowedIds.has(connectionId) && isCollapsed) {
+            next[connectionId] = true;
+          }
         }
-      }
-      return next;
-    });
+        return next;
+      });
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [selectedNetworkUser]);
 
   const networkTotals = useMemo(() => {
@@ -698,9 +723,9 @@ export function AdminDashboard({
                   className="flex flex-1 items-start gap-3 text-left text-sm font-semibold text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 >
                   {isCollapsed ? (
-                    <ChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0" />
                   ) : (
-                    <ChevronDown className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0" />
                   )}
                   <div className="space-y-1">
                     <p>{counterpart.name}</p>
@@ -1756,7 +1781,7 @@ export function AdminDashboard({
               </CardContent>
             </Card>
 
-            <Card className="min-h-[28rem]">
+            <Card className="min-h-112">
               <CardHeader className="space-y-1">
                 <CardTitle>
                   {selectedNetworkUser

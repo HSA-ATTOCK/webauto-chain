@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const webpush = require("web-push");
 const fs = require("fs");
 const path = require("path");

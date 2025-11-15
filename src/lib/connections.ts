@@ -202,18 +202,18 @@ interface InviteExistingInput {
   parentId: string;
   childId?: string;
   childEmail?: string;
-  childName?: string;
+  childPhone?: string;
   creatorId: string;
 }
 
 export async function createConnection(
   input: InviteExistingInput
 ): Promise<ConnectionSummary> {
-  const { parentId, childId, childEmail, creatorId } = input;
+  const { parentId, childId, childEmail, childPhone, creatorId } = input;
   await assertActiveCreatorSubscription(creatorId);
 
-  if (!childId && !childEmail) {
-    throw new Error("childId or childEmail is required");
+  if (!childId && !childEmail && !childPhone) {
+    throw new Error("Provide the partner email or phone number.");
   }
 
   const parent = await prisma.user.findUnique({ where: { id: parentId } });
@@ -225,6 +225,8 @@ export async function createConnection(
     ? await prisma.user.findUnique({ where: { id: childId } })
     : childEmail
     ? await prisma.user.findUnique({ where: { email: childEmail } })
+    : childPhone
+    ? await prisma.user.findUnique({ where: { phone: childPhone } })
     : null;
 
   if (!existingChild) {
@@ -232,7 +234,15 @@ export async function createConnection(
       throw new Error("Selected partner account no longer exists.");
     }
 
-    throw new Error("No user found with that email.");
+    if (childEmail) {
+      throw new Error("No user found with that email.");
+    }
+
+    if (childPhone) {
+      throw new Error("No user found with that phone number.");
+    }
+
+    throw new Error("No user found with the provided contact details.");
   }
 
   const targetChildId = existingChild.id;
